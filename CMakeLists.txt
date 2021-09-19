@@ -69,7 +69,6 @@ add_library(
 
 target_link_libraries(
   mtpserver
-  android-properties
   ${GLOG_LIBRARIES}
 )
 

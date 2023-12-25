@@ -31,8 +31,6 @@
 #include <libintl.h>
 #include <locale.h>
 
-#include <glog/logging.h>
-
 using namespace android;
 
 namespace core
@@ -305,8 +303,6 @@ public:
 
 int main(int argc, char** argv)
 {
-    google::InitGoogleLogging(argv[0]);
-
     bindtextdomain("mtp-server", "/usr/share/locale");
     setlocale(LC_ALL, "");
     textdomain("mtp-server");

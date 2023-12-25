@@ -47,8 +47,6 @@
 #include <boost/range/algorithm.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include <glog/logging.h>
-
 #define ALL_PROPERTIES 0xffffffff
 
 namespace asio = boost::asio;

@@ -19,6 +19,18 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <iostream>
+
+//Replacement macros for glog
+#define VLOG_LEVEL 0
+#define INFO "INFO"
+#define WARNING "WARN"
+#define ERROR "ERROR"
+#define FATAL "FATAL"
+#define LOG(x) std::cout << "\nLOG(" << x << "): "
+#define PLOG(x) std::cout << "\nPLOG(" << x << "): "
+#define VLOG_IS_ON(x) VLOG_LEVEL >= x
+#define VLOG(x) if (VLOG_IS_ON(x)) std::cout << "\nVLOG(" << x << "): "
 
 #define MTP_STANDARD_VERSION            100
 

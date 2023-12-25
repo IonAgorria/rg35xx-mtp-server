@@ -23,8 +23,6 @@
 
 #include <cstring>
 
-#include <glog/logging.h>
-
 namespace android {
 
 MtpDeviceInfo::MtpDeviceInfo()

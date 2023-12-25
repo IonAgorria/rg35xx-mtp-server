@@ -24,8 +24,6 @@
 #include "MtpStorageInfo.h"
 #include "MtpStringBuffer.h"
 
-#include <glog/logging.h>
-
 namespace android {
 
 MtpStorageInfo::MtpStorageInfo(MtpStorageID id)

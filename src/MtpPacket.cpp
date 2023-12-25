@@ -25,7 +25,6 @@
 #include <cstring>
 
 #include <usbhost/usbhost.h>
-#include <glog/logging.h>
 
 namespace android {
 

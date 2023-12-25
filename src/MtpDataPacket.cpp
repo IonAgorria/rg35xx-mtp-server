@@ -22,7 +22,6 @@
 #include <unistd.h>
 
 #include <usbhost/usbhost.h>
-#include <glog/logging.h>
 
 #include "MtpDataPacket.h"
 #include "MtpStringBuffer.h"

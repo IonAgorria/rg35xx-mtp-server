@@ -14,7 +14,6 @@ set(MTP_VERSION_MINOR 0)
 set(MTP_VERSION_PATCH 0)
 
 find_package(Boost REQUIRED COMPONENTS thread system filesystem unit_test_framework)
-pkg_check_modules(GLOG REQUIRED libglog)
 
 set(
     MTP_HEADERS
@@ -69,7 +68,6 @@ add_library(
 
 target_link_libraries(
   mtpserver
-  ${GLOG_LIBRARIES}
 )
 
 set_target_properties(

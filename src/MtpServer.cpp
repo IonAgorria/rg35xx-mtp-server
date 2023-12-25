@@ -40,8 +40,6 @@
 
 #include <linux/usb/f_mtp.h>
 
-#include <glog/logging.h>
-
 namespace android {
 
 static const MtpOperationCode kSupportedOperationCodes[] = {

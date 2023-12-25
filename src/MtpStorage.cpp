@@ -30,8 +30,6 @@
 #include <stdio.h>
 #include <limits.h>
 
-#include <glog/logging.h>
-
 namespace android {
 
 MtpStorage::MtpStorage(MtpStorageID id, const char* filePath,

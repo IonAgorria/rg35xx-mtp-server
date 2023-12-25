@@ -26,8 +26,6 @@
 #include <cstring>
 #include <sstream>
 
-#include <glog/logging.h>
-
 namespace android {
 
 MtpProperty::MtpProperty()

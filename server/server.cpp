@@ -33,28 +33,6 @@
 
 using namespace android;
 
-namespace core
-{
-
-struct UnityGreeter
-{
-    struct Properties
-    {
-        struct IsActive
-        {
-            inline static std::string name()
-            {
-                return "IsActive";
-            };
-            typedef UnityGreeter Interface;
-            typedef bool ValueType;
-            static const bool readable = true;
-            static const bool writable = false;
-        };
-    };
-};
-}
-
 namespace
 {
 struct FileSystemConfig
@@ -73,12 +51,7 @@ private:
 
     // Mtp stuff
     MtpServer* server;
-    MtpStorage* home_storage;
-    MtpStorage* sd_card;
     MtpDatabase* mtp_database;
-
-    // Security
-    bool screen_locked = false;
 
     // inotify stuff
     boost::thread notifier_thread;
@@ -93,37 +66,35 @@ private:
 
     int watch_fd;
     int media_fd;
+    
+    bool enable_media_mounts;
 
     // storage
-    std::map<std::string, std::tuple<MtpStorage*, bool> > removables;
-    bool home_storage_added;
+    std::map<std::string, MtpStorage*> removables;
 
-    void add_removable_storage(const char *path, const char *name)
+    void add_storage(const char *path, const char *name, bool removable)
     {
-        static int storageID = MTP_STORAGE_REMOVABLE_RAM;
+        static int storageID = 1;
 
-        MtpStorage *removable = new MtpStorage(
+        MtpStorage *storage = new MtpStorage(
             storageID, 
             path,
             name,
             1024 * 1024 * 100,  /* 100 MB reserved space, to avoid filling the disk */
-            true,
-            1024 * 1024 * 1024 * 2  /* 2GB arbitrary max file size */);
+            removable,
+            (uint64_t) 1024 * 1024 * 1024 * 4  /* 4GB arbitrary max file size */);
 
         storageID++;
 
-        if (!screen_locked) {
-            mtp_database->addStoragePath(path,
-                                         std::string(),
-                                         removable->getStorageID(),
-                                         true);
-            server->addStorage(removable);
-        }
+        mtp_database->addStoragePath(path,
+                                        name,
+                                        storage->getStorageID(),
+                                        true);
+        server->addStorage(storage);
 
-        removables.insert(std::pair<std::string, std::tuple<MtpStorage*, bool> >
-                              (name,
-                               std::make_tuple(removable,
-                                               screen_locked ? false : true)));
+        if (removable) {
+            removables.insert(std::pair<std::string, MtpStorage*> (name, storage));
+        }
     }
 
     void add_mountpoint_watch(const std::string& path)
@@ -148,6 +119,11 @@ private:
     void inotify_handler(const boost::system::error_code&,
                          std::size_t transferred)
     {
+        if (!enable_media_mounts) {
+            read_more_notify();
+            return;
+        }
+        
         size_t processed = 0;
  
         while(transferred - processed >= sizeof(inotify_event))
@@ -168,7 +144,7 @@ private:
                 } else {
                     VLOG(1) << "Storage was added: " << ievent->name;
                     storage_path /= ievent->name;
-                    add_removable_storage(storage_path.string().c_str(), ievent->name);
+                    add_storage(storage_path.string().c_str(), ievent->name, true);
                 }
             }
             else if (ievent->len > 0 && ievent->mask & IN_DELETE)
@@ -178,8 +154,7 @@ private:
                 // Try to match to which storage was removed.
                 BOOST_FOREACH(std::string name, removables | boost::adaptors::map_keys) {
                     if (name == ievent->name) {
-                        auto t = removables.at(name);
-                        MtpStorage *storage = std::get<0>(t);
+                        MtpStorage *storage = removables.at(name);
 
                         VLOG(2) << "removing storage id "
                                 << storage->getStorageID();
@@ -202,6 +177,9 @@ public:
         buf(1024)
     {
         userdata = getpwuid (getuid());
+        
+        const char* env_s = std::getenv("MTP_MEDIA_MOUNTS");
+        enable_media_mounts = env_s && !strncmp(env_s, "0", 1);
 
         // Removable storage hacks
         inotify_fd = inotify_init();
@@ -230,39 +208,56 @@ public:
 
     void initStorage()
     {
-        constexpr auto product_name = "Linux Smartphone";
-
-        home_storage = new MtpStorage(
-            MTP_STORAGE_FIXED_RAM, 
-            userdata->pw_dir,
-	    product_name,
-            1024 * 1024 * 100,  /* 100 MB reserved space, to avoid filling the disk */
-            false,
-            1024 * 1024 * 1024 * 2  /* 2GB arbitrary max file size */);
-
-        mtp_database->addStoragePath(std::string(userdata->pw_dir),
-                                     std::string("Home"),
-                                     MTP_STORAGE_FIXED_RAM, false);
-        home_storage_added = false;
-
-        // Get any already-mounted removable storage.
-        path p(std::string("/media/") + userdata->pw_name);
-        if (exists(p)) {
-            std::vector<path> v;
-            copy(directory_iterator(p), directory_iterator(), std::back_inserter(v));
-            for (std::vector<path>::const_iterator it(v.begin()), it_end(v.end()); it != it_end; ++it)
-            {
-                add_removable_storage(it->string().c_str(), it->leaf().c_str());
+        const char* env_entry_len = std::getenv("MTP_ENTRY_LEN");
+        int mtp_len = 0;
+        if (env_entry_len) {
+            try {
+                mtp_len = std::stoi(env_entry_len);
+            } catch (std::exception& e) {
+                LOG(ERROR) << "Unable to parse MTP_ENTRY_LEN:" << e.what();
+                mtp_len = 0;
             }
-
-            // make sure we can catch any new removable storage that gets added.
-            add_mountpoint_watch(p.string());
-        } else {
-            media_fd = inotify_add_watch(inotify_fd,
-                                         "/media",
-                                         IN_CREATE | IN_DELETE);
         }
+        if (0 < mtp_len) {
+            for (int i = 1; i <= mtp_len; i++) {
+                std::string entry_base = std::string("MTP_ENTRY_") + std::to_string(i);
+                const char* env_entry_path = std::getenv((entry_base + "_PATH").c_str());
+                if (!env_entry_path || 0 == strlen(env_entry_path)) {
+                    LOG(ERROR) << "Unable to parse " << entry_base << "_PATH";
+                    continue;
+                }
+                const char* env_entry_name = std::getenv((entry_base + "_NAME").c_str());
+                std::string entry_name = std::to_string(i);
+                if (env_entry_name && 0 < strlen(env_entry_name)) {
+                    entry_name = env_entry_name;
+                } else if (env_entry_name) {
+                    LOG(WARNING) << "Unable to parse " << entry_base << "_NAME";
+                }
+                const char* env_entry_removable = std::getenv((entry_base + "_REMOVABLE").c_str());
+                bool removable = env_entry_removable && !strncmp(env_entry_removable, "0", 1);
+                add_storage(env_entry_path, entry_name.c_str(), removable);
+            }
+        }
+        
+        // Get any already-mounted removable storage.
+        if (enable_media_mounts) {
+            path p(std::string("/media/") + userdata->pw_name);
+            if (exists(p)) {
+                std::vector<path> v;
+                copy(directory_iterator(p), directory_iterator(), std::back_inserter(v));
+                for (std::vector<path>::const_iterator it(v.begin()), it_end(v.end()); it != it_end; ++it)
+                {
+                    add_storage(it->string().c_str(), it->leaf().c_str(), true);
+                }
 
+                // make sure we can catch any new removable storage that gets added.
+                add_mountpoint_watch(p.string());
+            } else {
+                media_fd = inotify_add_watch(inotify_fd,
+                                            "/media",
+                                            IN_CREATE | IN_DELETE);
+            }
+        }
     }
 
     ~MtpDaemon()
@@ -277,25 +272,6 @@ public:
 
     void run()
     {
-        screen_locked = false;
-        VLOG(2) << "device is not locked, adding storage";
-        if (home_storage) {
-            server->addStorage(home_storage);
-            home_storage_added = true;
-        }
-        BOOST_FOREACH(std::string name, removables | boost::adaptors::map_keys) {
-            auto t = removables.at(name);
-            MtpStorage *storage = std::get<0>(t);
-            bool added = std::get<1>(t);
-            if (!added) {
-                mtp_database->addStoragePath(storage->getPath(),
-                                             std::string(),
-                                             storage->getStorageID(),
-                                             true);
-                server->addStorage(storage);
-            }
-        }
-
         // start the MtpServer main loop
         server->run();
     }

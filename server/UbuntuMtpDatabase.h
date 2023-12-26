@@ -197,7 +197,7 @@ private:
             if (exists(p)) {
                 if (is_directory(p)) {
                     entry.storage_id = storage;
-                    entry.parent = hidden ? MTP_PARENT_ROOT : 0;
+                    entry.parent = MTP_PARENT_ROOT;//hidden ? MTP_PARENT_ROOT : 0;
                     entry.display_name = display_name;
                     entry.path = p.string();
                     entry.object_format = MTP_FORMAT_ASSOCIATION;

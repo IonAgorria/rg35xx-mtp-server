@@ -23,3 +23,5 @@ cmake \
 cd $BUILD_DIR
 make -j4
 make install
+
+cp -v out/bin/mtp-server ../artifacts/ROMS/CFW/mtp/mtp-server

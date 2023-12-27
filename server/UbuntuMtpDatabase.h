@@ -171,7 +171,7 @@ private:
 
         if (ec == boost::system::errc::permission_denied) {
             VLOG(2) << "Could not immediately read dir; retrying.";
-            boost::this_thread::sleep(boost::posix_time::millisec(500));
+            std::this_thread::sleep_for(std::chrono::microseconds(500));
             i = directory_iterator(p);
         }
 

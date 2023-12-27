@@ -482,15 +482,30 @@ MtpResponseCode MtpServer::doGetDeviceInfo() {
     mData.putAUInt16(captureFormats); // Capture Formats
     mData.putAUInt16(playbackFormats);  // Playback Formats
 
-    string.set("Unknown manufacturer");
+    const char* env_s = std::getenv("MTP_MANUFACTURER");
+    if (env_s) {
+        string.set(env_s);
+    } else {
+        string.set("Unknown manufacturer");
+    }
     mData.putString(string);   // Manufacturer
 
-    string.set("MTP Device");
+    env_s = std::getenv("MTP_DEVICE");
+    if (env_s) {
+        string.set(env_s);
+    } else {
+        string.set("MTP Device");
+    }
     mData.putString(string);   // Model
     string.set("1.0");
     mData.putString(string);   // Device Version
 
-    string.set("????????");
+    env_s = std::getenv("MTP_SERIAL");
+    if (env_s) {
+        string.set(env_s);
+    } else {
+        string.set("????????");
+    }
     mData.putString(string);   // Serial Number
 
     delete playbackFormats;

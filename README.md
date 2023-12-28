@@ -36,6 +36,9 @@ A optional APPS script is provided to toggle MTP by creating/removing `/misc/ena
 
 ## Compiling
 
+Source code:
+https://github.com/IonAgorria/rg35xx-mtp-server
+
 As rg35xx toolchain lacks some boost modules required to compile this a fork was made to add them:
 https://github.com/IonAgorria/rg35xx-toolchain
 
